@@ -1,57 +1,49 @@
 // IDEA: CREATE A "WARIO", VERSION OF MARIO IN WHICH THERE ARE AIRPLANES ATTACKING MARIO
 
-function loadImage(url) {
-    return new Promise(resolve => {
-        const image = new Image();
-        image.addEventListener('load', () => {
-            resolve(image);
-        });
-        image.src = url;
-    });
-}
+import { loadLevel } from './loaders.js';
+import { loadMarioSprite, loadBackgroundSprites } from './sprites.js';
+import Compositor from './compositor.js';
+import {createBackgroundLayer} from './layers.js';
 
-class SpriteSheet {
-    constructor(image,width,height) {
-        this.image = image;
-        this.width = width;
-        this.height = height;
-        this.tiles = new Map()
-    }
-
-    define(name,x,y) {
-        const buffer = document.createElement('canvas');
-        buffer.width = this.width;
-        buffer.height = this.height;
-        buffer
-            .getContext("2d")
-            .drawImage(
-                this.image,
-                x*this.width,
-                y*this.width,
-                this.width,
-                this.height,
-                0,
-                0,
-                this.width,
-                this.height,
-                this.tiles.set(name, buffer));
-    }
-
-    draw(name,context,x,y) {
-        const buffer = this.tiles.get(name);
-        context.drawImage(buffer,x,y);
-    }
-}
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext("2d");
 
-ctx.fillStyle = "red";
-ctx.fillRect(0,0,100,100);
 
-loadImage('./img/tiles.png')
-.then(image => {
-    const sprites = new SpriteSheet(image,16,16);
-    sprites.define('ground',0,0);
-    sprites.draw('ground',ctx,45,62);
+function createSpriteLayer(sprite, position) {
+    return function drawSpriteLayer(ctx) {
+        for(let i=0; i<20; i++) {
+            sprite.draw('idle', ctx, position.x, position.y);
+        }
+    }
+}
+
+Promise.all([
+    loadMarioSprite(),
+    loadBackgroundSprites(),
+    loadLevel('1-1')
+]).then(([marioSprite, backgroundSprites, level]) => {
+
+    const comp = new Compositor();
+
+    const backgroundLayer = createBackgroundLayer(level.backgrounds, backgroundSprites);
+    comp.layers.push(backgroundLayer);
+
+    const pos = {
+        x:0,
+        y:0,
+    }
+
+    const spriteLayer = createSpriteLayer(marioSprite,pos)
+    comp.layers.push(spriteLayer);
+
+    function update() {
+        comp.draw(ctx);        
+        pos.x += 2;
+        pos.y += 2;
+        requestAnimationFrame(update);
+    }
+
+    update()
+
 });
